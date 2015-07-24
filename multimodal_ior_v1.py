@@ -1,8 +1,10 @@
+# GHIS: if I understand correctly, doing this at the beginning answers the question of whether the code is being run directly or being imported by someone else. I don't get the functionality of this. It seems arcane.
 if __name__ == '__main__':
 	########
 	#Important parameters
 	########
 
+# GHIS: I am familiar with this as I helped map it out. The bits for the labjeack.
 	trigger_led_num = 8
 	left_led_num = 9
 	right_led_num = 11
@@ -12,8 +14,11 @@ if __name__ == '__main__':
 	viewing_distance = 60.0 #units can be anything so long as they match those used in stim_display_width below
 	stim_display_width = 54.5 #units can be anything so long as they match those used in viewing_distance above
 	stim_display_res = (1920,1080) #pixel resolution of the stim_display
+
+# GHIS: not getting right now why the x coordinate is sooo negative.
 	stim_display_position = (-1440-1920,1680-1080)
 
+# GHIS: not sure what all this exactly is at the moment.
 	writer_window_size = (200,200)
 	writer_window_position = (600,0)
 
@@ -22,9 +27,12 @@ if __name__ == '__main__':
 
 	stamper_window_size = (200,200)
 	stamper_window_position = (0,0)
+
+# GHIS: this is RGB
 	stamper_window_color = [255,255,255]
 	stamper_do_border = True
 
+# GHIS: do we want to run eyetracking? Yes.
 	do_eyelink = True
 	eyelink_window_size = (200,200)
 	eyelink_window_position = (900,0)
@@ -33,16 +41,20 @@ if __name__ == '__main__':
 	edf_path = './'
 	saccade_sound_file = '_Stimuli/stop.wav'
 	blink_sound_file = '_Stimuli/stop.wav'
+# GHIS: size of small white dot in beginning of experiment in degrees, then threshold for saccades in degrees (if I'm not mistaken this is as strict as the get in the litterature)
 	calibration_dot_size_in_degrees = .5
 	gaze_target_criterion_in_degrees = 2
 
- 	
+ # GHIS: create lists for all levels of each factor.	
 	cue_modality_list = ['visual','tactile']
 	cue_location_list = ['left','right']
 	target_location_list = ['left','right']
 	target_modality_list = ['visual','tactile']
+# GHIS: create list specifiying 9:1 ratio of regular trials to catch trials 
 	target_type_list = ['catch','target','target','target','target','target','target','target','target','target']
 
+# GHIS: specify maximum and minimum intervals between trial initiation and cue onset, then fixed interval for cue onset to target onset, then interval after target in which participants can respond (before timeout)
+# GHIS: also specify length of time cue and feedback stay 'on' - target duration is commented out because we keep the targets on until a response is made (therefore not fixed)
 	fixation_duration_min = 0.500
 	fixation_duration_max = 1.500
 	cue_target_oa = 1.000
@@ -51,6 +63,7 @@ if __name__ == '__main__':
 	response_timeout = 1.000
 	feedback_duration = 0.500
 
+# GHIS: single 'poke' instead 
 	# cue_stim_frequency = 100 #Hz
 
 	#(9+1)*2*2*2*2 = 160 trials
@@ -58,8 +71,10 @@ if __name__ == '__main__':
 	trials_for_practice = 40
 	trials_per_break = 40
 
+# GHIS: what instructions? 
 	instruction_size_in_degrees = 1 #specify the size of the instruction text
 	feedback_size_in_degrees = 1 #specify the size of the feedback text
+# GHIS: same as calibration ... 
 	fixation_size_in_degrees = .5
 
 	text_width = .9 #proportion of the stim_display to use when drawing instructions
@@ -68,6 +83,7 @@ if __name__ == '__main__':
 	# Import libraries
 	########
 	import u3 #for labjack
+# GHIS: aha, the famous SLD2 - wrapper around sld2 library, accesible in python code 
 	import sdl2 #for input and display
 	import sdl2.sdlmixer
 	import numpy #for image and display manipulation
@@ -82,6 +98,7 @@ if __name__ == '__main__':
 	import time #for timing
 	import shutil #for copying files
 	import OpenGL.GL as gl
+# GHIS: not sure what this try/except sequence is all about 
 	try:
 		os.nice(-20)
 	except:
@@ -97,6 +114,7 @@ if __name__ == '__main__':
 	########
 	# Initialize the labjack
 	########
+# GHIS: I am familiar with this ...
 	labjack = u3.U3()
 	labjack.configU3()
 	labjack.getFeedback(u3.LED(State = False))
@@ -104,8 +122,12 @@ if __name__ == '__main__':
 	########
 	# Initialize audio and define a class for playing sounds
 	########
+
+# GHIS: initiatlize SDL library - must be done before using any function; I'm guessing that SDL_INIT_AUDIO does the same but specifically for audio related functions (vague I know)
 	sdl2.SDL_Init(sdl2.SDL_INIT_AUDIO)
+# GHIS: mixer supports playing MIDI format files ...openaudio takes arguments sampling frequency, output format, number of output channels (2 for stereo), and bytes per output sample ...  
 	sdl2.sdlmixer.Mix_OpenAudio(44100, sdl2.sdlmixer.MIX_DEFAULT_FORMAT, 2, 1024)
+# GHIS: so far this doesn't seem useful to us - we are not playing sounds 
 	class Sound:
 		def __init__(self, fileName):
 			self.sample = sdl2.sdlmixer.Mix_LoadWAV(byteify(fileName, "utf-8"))
@@ -129,6 +151,7 @@ if __name__ == '__main__':
 	########
 
 	#define a function that gets the time (unit=seconds,zero=?)
+	# GHIS: without looking up functions I'm guessing this is some arbitrary time/count unit over frequency of count which is why it returns something with seconds as units 
 	def get_time():
 		return sdl2.SDL_GetPerformanceCounter()*1.0/sdl2.SDL_GetPerformanceFrequency()
 
@@ -136,6 +159,7 @@ if __name__ == '__main__':
 	########
 	# Initialize the timer and random seed
 	########
+	# GHIS: pretty self explanatory, although the documentation seems to say that the default seed is the "current system time", if this different than what you are setting to here? 
 	sdl2.SDL_Init(sdl2.SDL_INIT_TIMER)
 	seed = get_time() #grab the time of the timer initialization to use as a seed
 	random.seed(seed) #use the time to set the random seed
@@ -144,6 +168,7 @@ if __name__ == '__main__':
 	########
 	#Perform some calculations to convert stimulus measurements in degrees to pixels
 	########
+	# GHIS: presumably it is more convenient to have all these measurements in pixels, I'll probably find out why, although I'm guessing that it is because interacting with display moniter requires input to be in pixels ... calculations are straight forward 
 	stim_display_width_in_degrees = math.degrees(math.atan((stim_display_width/2.0)/viewing_distance)*2)
 	PPD = stim_display_res[0]/stim_display_width_in_degrees #compute the pixels per degree (PPD)
 
@@ -157,17 +182,19 @@ if __name__ == '__main__':
 	# Initialize fonts
 	########
 	feedback_font_size = 2
+	# GHIS: specify type (e.g. calibri, etc.) and size 
 	feedback_font = ImageFont.truetype ("_Stimuli/DejaVuSans.ttf", feedback_font_size)
 	feedback_height = feedback_font.getsize('XXX')[1]
+# GHIS: ok, keep increasing 'size' until the height is at least as big as the size. Is this to ensure that it is not wider than it is tall? 
 	while feedback_height<feedback_size:
 		feedback_font_size = feedback_font_size + 1
 		feedback_font = ImageFont.truetype ("_Stimuli/DejaVuSans.ttf", feedback_font_size)
 		feedback_height = feedback_font.getsize('XXX')[1]
-
+# GHIS: simply make sure you didn't overshoot the height/size 
 	feedback_font_size = feedback_font_size - 1
 	feedback_font = ImageFont.truetype ("_Stimuli/DejaVuSans.ttf", feedback_font_size)
 	feedback_height = feedback_font.getsize('XXX')[1]
-
+# GHIS: here you are doing the exact same thing except you decided to create a new variable specifically for instruction (as opposed to feedback) - this is preferable if you anticipate wanting to vary the text size depending on the nature of the text you'd want to be showing (perhaps have feedback be bigger)
 	instruction_font_size = 2
 	instruction_font = ImageFont.truetype ("_Stimuli/DejaVuSans.ttf", instruction_font_size)
 	instruction_height = instruction_font.getsize('XXX')[1]
@@ -183,6 +210,7 @@ if __name__ == '__main__':
 	########
 	# initialize the eyelink
 	########
+
 	if do_eyelink:
 		eyelink_child = fileForker.childClass(childFile='eyelink_child.py')
 		eyelink_child.initDict['window_size'] = eyelink_window_size
