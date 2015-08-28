@@ -3,13 +3,12 @@ library(ggplot2)
 library(stringr)
 
 # use this vector length later in text 
-files = list.files("~/GitHub/Ghis_Multimodal_IOR/For Analysis/EXP_TXT")
-len = length(files)
+files = list.files("~/GitHub/multimodal_ior/For Analysis/EXP_TXT")
 
 # read in data 
 a = ldply(
   .data = list.files(
-    path = "~/GitHub/Ghis_Multimodal_IOR/For Analysis/EXP_TXT"
+    path = '~/Multimodal_IOR/For Analysis/EXP_TXT'
     , pattern = '_data.txt'
     , full.names = T
     , recursive = T
@@ -39,7 +38,7 @@ date_id = table(a$date, a$id)
 
 bb = NULL
 
-pnum = c(2:5, 7:len )
+pnum = c(2:5, 7:length(files) )
 
 # cycle through each participant folder
 for (w in pnum) {
@@ -187,59 +186,68 @@ ggplot(bb[bb$date == date_order[1],], aes(x2, y2) ) +
 
 d=a
 
-# make e11v2 e11
-d$id[d$id == "e11v2"] = "e11"
-len = len - 1 
+# get rid of "tactice"
+d[d$target_modality == "tactice",]$target_modality = "tactile"
 
-# get rid of e18 - missing False Tactile Visual
-d = d[d$id != "e18",]
-len = len - 1
+# order according to date to make easier 
+#d$date = as.Date(sprintf("%i/%i", d$month, d$day), format = "%m/%d")
+#d = d[order(d$date),]
 
-# get rid of e15 - missing True Visual Tactile 
-d = d[d$id != "e15",]
-len = len - 1
+# check to see that this matches with participant ids
+#date_id = table(d$date, d$id)
 
-# define cued 
 d$cued = FALSE
 d$cued[d$target_location == "right" & d$cue_location == "right" | d$target_location == "left" & d$cue_location == "left"] = TRUE
 
-# get rid of practice blocks 
 d = d[d$block != "practice",]
 
-# define blink or saccade
 d$SorB = FALSE
 d$SorB[d$blink == TRUE | d$saccade == TRUE] = TRUE 
 
 d$count = TRUE 
 
-# count number of blinks or saccades 
-dSum = aggregate(SorB ~ id, data = d, FUN = sum)
-dLength = aggregate(count ~ id, data = d, FUN = sum)
+dSum = aggregate(SorB ~ hour + date, data = d, FUN = sum)
+dLength = aggregate(count ~ hour + date, data = d, FUN = sum)
 dProp = dSum$SorB/dLength$count
+
+# now add the critical intervals from participants 1 to 10 
+bb$CritSorB = FALSE
+bb$CritSorB[bb$critical_blink == TRUE | bb$critical_saccade == TRUE] = TRUE 
+
+critSum = aggregate(CritSorB ~ hour + date, data = bb, FUN = sum)
+bb$count = TRUE 
+critLength = aggregate(count ~ hour + date, data = bb, FUN = sum)
+critProp = critSum$CritSorB/critLength$count
+# NOTE: slightly different numbers for the last five of this list because 'bb' df has less observations than 'a' dataframe 
+
 
 # now do the same for critical interval
 d$CritSorB = FALSE
 d$CritSorB[d$critical_blink == TRUE | d$critical_saccade == TRUE] = TRUE 
 
-dSum2 = aggregate(CritSorB ~ id, data = d, FUN = sum)
-dLength2 = aggregate(count ~ id, data = d, FUN = sum)
+dSum2 = aggregate(CritSorB ~ hour + date, data = d, FUN = sum)
+dLength2 = aggregate(count ~ hour + date, data = d, FUN = sum)
 dProp2 = dSum2$CritSorB/dLength2$count
+
+# add early critical interval to prop2
+dProp2[2:5] = critProp[1:4]
+dProp2[7:10] = critProp[5:8]
+dProp2[1] = NA
+dProp2[6] = NA
 
 #Get rid of blink/saccade trials
 e = d
 e = e[e$SorB == FALSE,]
 
 # LOOK AT IOR WITHOUT BLINKS OR SACCADES 
-eAgg = aggregate(target_response_rt ~ cued + cue_modality + target_modality + id, data = e, FUN = mean)
+eAgg = aggregate(target_response_rt ~ cued + cue_modality + target_modality + hour + date, data = e, FUN = mean)
 
 # create data frame of IOR and add other parameters  
-kleinTable = data.frame(matrix(eAgg$target_response_rt, nrow = len, byrow = TRUE))
+kleinTable = data.frame(matrix(eAgg$target_response_rt, nrow = length(files), byrow = TRUE))
 
-# count how many trials there were in total and then determine what proportion are used in analysis 
-usedAgg = aggregate(cue_modality ~ id , d, length)
-used_trials = usedAgg$cue_modality * (1 - dProp)
+usedAgg = aggregate(id ~ hour + date, a, length)
+used_trials = usedAgg$id * (1 - dProp)
 
-# add number of used trials and proportion to which it corresponds to table 
 kleinTable = cbind(round(used_trials), round(kleinTable) )
 kleinTable = cbind(round(dProp, digits = 2), kleinTable)
 
@@ -247,13 +255,18 @@ kleinTable = cbind(round(dProp, digits = 2), kleinTable)
 f = d
 f = f[f$CritSorB == FALSE,]
 
-fAgg = aggregate(target_response_rt ~ cued + cue_modality + target_modality + id, data = f, FUN = mean)
+fAgg = aggregate(target_response_rt ~ cued + cue_modality + target_modality + hour + date, data = f, FUN = mean)
 
 # create data frame of IOR  
-kleinTable2 = data.frame(matrix(fAgg$target_response_rt, nrow = len, byrow = TRUE))
+kleinTable2 = data.frame(matrix(fAgg$target_response_rt, nrow = length(files), byrow = TRUE))
+
+# get rid of participant 1 and 6 crit 
+kleinTable2[1,] = NA
+kleinTable2[6,] = NA
 
 # add data frame and parameters to initial data frame 
-used_trials2 = usedAgg$cue_modality * (1 - dProp2)
+usedAgg2 = aggregate(id ~ hour + date, a, length)
+used_trials2 = usedAgg$id * (1 - dProp2)
 
 kleinTable = cbind(kleinTable, round(dProp2, digits = 2) ) 
 kleinTable = cbind(kleinTable, round(used_trials2) )
@@ -261,15 +274,69 @@ kleinTable = cbind(kleinTable, round(kleinTable2) )
 
 
 # set names for all columns: watch out for orderering, etc. 
-names(kleinTable) = c("exclusion proportion - entire trial", "trials used - entire trial", "uncued TT", "cued TT", "uncued VT", "cued VT", "uncued TV", "cued TV", "uncued VV", "cued VV" 
-                      ,"exclusion proportion - cue to 300 ms post", "trials used - cue to 300 ms post", "uncued TT", "cued TT", "uncued VT", "cued VT", "uncued TV", "cued TV", "uncued VV", "cued VV")
+names(kleinTable) = c("exclusion proportion - entire trial", "trials used - entire trial", "uncued TV", "cued TV", "uncued VV", "cued VV", "uncued TT", "cued TT", "uncued VT", "cued VT", 
+                      "exclusion proportion - cue to 300 ms post", "trials used - cue to 300 ms post", "uncued TV", "cued TV", "uncued VV", "cued VV", "uncued TT", "cued TT", "uncued VT", "cued VT")
 
 # check to make sure that names match actual columns 
-perms = eAgg[,1:3]
+perms = eAgg[,2:3]
 
-participants = unique(eAgg$id) 
-
+participants = NULL 
+for (i in 1:length(files)) {
+  if (i < 10) {
+    temp = sprintf("p0%i", i)
+    participants = rbind(participants, temp)
+  } else {
+    temp = sprintf("p%i", i)
+    participants = rbind(participants, temp)
+  }
+}
 kleinTable = cbind(participants, kleinTable)
+
+# now make summary table of critical vs. non-critical for each "group"
+
+noFed = 1:5
+imFed = 6
+verbFed = 7:12
+restFed = 13:15
+
+v = cbind(noFed, imFed, verbFed, restFed)
+
+df = NULL
+
+# NOTE: I could likely just create another column with factors and then aggregate instead ... 
+for (d in 1:length(colnames(v) ) ) {
+  dup = duplicated(v[,d])
+  inde = length(dup) - sum(dup[dup == TRUE])
+  vect = v[,d][1:inde]
+  
+  df_temp = NULL
+  
+  for (i in 2:length(kleinTable[1,]) ) {
+    if (i %in% c(3,13) ) {
+      temp = sum(kleinTable[vect, i], na.rm = TRUE)
+      df_temp = cbind(df_temp, temp)      
+    } else {
+    temp = mean(kleinTable[vect, i], na.rm = TRUE)
+    df_temp = cbind(df_temp, temp)
+    }
+  }
+  
+  df = rbind(df, df_temp)
+}
+
+df = as.data.frame(df)
+
+# round now
+df[,-c(1,11)] = round(df[,-c(1,11)])
+df[,c(1,11)] = round(df[,c(1,11)], digits = 2)
+
+# set names for all columns
+names(df) = c("exclusion proportion - entire trial", "trials used - entire trial", "uncued TV", "cued TV", "uncued VV", "cued VV", "uncued TT", "cued TT", "uncued VT", "cued VT", 
+                      "exclusion proportion - cue to 300 ms post", "trials used - cue to 300 ms post", "uncued TV", "cued TV", "uncued VV", "cued VV", "uncued TT", "cued TT", "uncued VT", "cued VT")
+
+# set row/group names
+groups = c("no feedback", "immediate feedback", "immediate practice feedback + verbal instructions", " ... + rest break feedback")
+df = cbind(groups, df)
 
 
 
