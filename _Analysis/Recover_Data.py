@@ -32,8 +32,9 @@ def integer_to_binary(number_string):
 def process_vmrk(filedir, filename):
 	os.chdir(filedir) # change to file's folder
 	basename = os.path.splitext(filename)[0] # get base name 
-	newFile = open(basename + "_new", "w") # open file in which the refined information from the original .vmrk will be put in 
-	newFile.write("trial_num	cue_location	cue_modality	target_location	target_modality	target_type	trial_start_time\ttarget_on_time")
+	participant_id = basename.split("_")[-1]
+	newFile = open(basename + "_new" + "_" + participant_id, "w") # open file in which the refined information from the original .vmrk will be put in 
+	newFile.write("id\ttrial_num	cue_location	cue_modality	target_location	target_modality	target_type	trial_start_time\ttarget_on_time")
 	oldFile = open(filename, 'r')
 	done = False
 	dataStarted = False
@@ -46,7 +47,7 @@ def process_vmrk(filedir, filename):
 		if dataStarted:
 			if line == '':
 				done = True
-			elif line[0:2] == "Mk":
+			else:
 				# I want to get binary derived variables
 				number_string = line.replace(' ','').split(',')[1].strip().strip('S') # this takes the number to be converted into binary
 				if number_string == '':
@@ -60,7 +61,8 @@ def process_vmrk(filedir, filename):
 					for_label = line[1]		
 					# start of trial or target on
 					if for_label[6] == "0":
-						newFile.write("\n") #make new line 
+						newFile.write("\n") # make new line 
+						newFile.write(participant_id) # write down participant id
 						trial_num += 1 # get trial number 
 						trial_num_str = str(trial_num)
 						newFile.write(trial_num_str)
@@ -176,6 +178,78 @@ def process_asc(filedir, filename):
 	saccadesFile = open('saccades.txt','w')
 	saccadesFile.write('\n'.join(['\t'.join(thisSaccade) for thisSaccade in saccades]))
 	saccadesFile.close()
+
+# function to process saccades, blinks, samples, etc. files that were derived from asc files 
+def process_EM_files(filedir, filename):
+	os.chdir(filedir)
+	trialsFile = open('trials.txt','r')
+	blinksFile = open('blinks.txt','r')
+	saccadesFile = open('saccades.txt','r')
+	participant_id = trialsFile.readline().split('\t')[2] # grab id variable from trials file 
+	trialsFile.seek(0) # go back to beginning in case it changed 
+	basename = os.path.splitext(filename)[0]
+	newFile = open(basename + "_new" + "_" + participant_id,'w') # put in file name 
+	newFile.write("id\tblock_num\ttrial_num\ttrial_start_time\ttrial_end_time\tsaccade\tblink\tlatest_saccade_start\tlatest_blink_start")
+	done = False
+	dataStarted = False
+	while not done:
+		line = trialsFile.readline()
+		if not dataStarted: # note first item must be digit  
+			if line[0].isdigit():
+				dataStarted = True
+		if dataStarted:
+			if line == '':
+				done = True
+			else:
+				line = line.split("\t")
+				if line[1] == "trial_start":		
+					newFile.write('\n')
+					newFile.write(line[2] + '\t') # id 
+					newFile.write(line[3] + '\t') # block number 
+					newFile.write(line[4].rstrip("\n") + '\t') # trial number
+					newFile.write(line[0] + '\t') # trial start time
+					trial_start_time = int(line[0])
+				else:
+					newFile.write(line[0] + '\t') # trial end time 
+					trial_end_time = int(line[0])
+					temp_list = []
+					saccade = "FALSE"
+					saccadesFile.seek(0)
+					for sac_line in saccadesFile.readlines():
+						sac_line = sac_line.split('\t')
+						saccade_start = int(sac_line[1])
+						if (trial_start_time <= saccade_start <= trial_end_time): 
+							temp_list.append(saccade_start)
+							saccade = "TRUE"
+						else:
+							pass
+					if saccade == "TRUE": 
+						latest_saccade_start = max(temp_list)
+					else: 
+						latest_saccade_start = "NA" 
+					temp_list = []
+					blink = "FALSE"
+					blinksFile.seek(0)
+					for blk_line in blinksFile.readlines():
+						blk_line = blk_line.split('\t')
+						blink_start = int(blk_line[1])
+						if (trial_start_time <= blink_start <= trial_end_time): 
+							temp_list.append(blink_start)
+							blink = "TRUE"
+						else:
+							pass
+					if blink == "TRUE": 
+						latest_blink_start = max(temp_list)
+					else: 
+						latest_blink_start = "NA" 
+					newFile.write(saccade + '\t') 
+					newFile.write(blink + '\t') 
+					newFile.write(str(latest_saccade_start) + '\t')  
+					newFile.write(str(latest_blink_start) ) 
+	trialsFile.close()
+	blinksFile.close() 
+	saccadesFile.close() 
+	newFile.close()
 
 # THIS WORKS 
 def deconstruct_filepaths(filepaths):
